@@ -48,6 +48,21 @@ parse_review_md() {
 # selection had no effect. Returns empty when config absent/empty so callers fall
 # back to the cascade.
 # Output: agent_type:role:specialty triples, newline-separated.
+_review_provider_allowed() {
+    if declare -f octo_provider_allowed >/dev/null 2>&1; then
+        octo_provider_allowed "$1"
+        return $?
+    fi
+    return 0
+}
+
+_review_cli_available() {
+    local provider="$1"
+    local cmd="${2:-$1}"
+    _review_provider_allowed "$provider" || return 1
+    command -v "$cmd" >/dev/null 2>&1
+}
+
 _review_fleet_from_config() {
     local config_file="${HOME}/.claude-octopus/config/providers.json"
     [[ ! -f "$config_file" ]] && return 0
@@ -65,6 +80,7 @@ _review_fleet_from_config() {
 
     while IFS= read -r provider; do
         [[ -z "$provider" ]] && continue
+        _review_provider_allowed "$provider" || continue
         case "$provider" in
             codex|codex-*)
                 if [[ "$has_logic" == "false" ]]; then
@@ -129,7 +145,7 @@ _review_fleet_from_config() {
 
     # Anchor: always include arch-reviewer (claude-sonnet) if config didn't supply one.
     # Architecture context bridges per-finding noise from the specialist agents.
-    if [[ "$has_arch" == "false" ]]; then
+    if [[ "$has_arch" == "false" ]] && _review_provider_allowed "claude-sonnet"; then
         fleet+="claude-sonnet:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
     fi
 
@@ -156,44 +172,46 @@ build_review_fleet() {
     # ── Cascade fallback (original behavior — no config or empty config) ──
 
     # logic-reviewer: Codex (OpenAI) → OpenCode → Copilot → claude-sonnet fallback
-    if command -v codex >/dev/null 2>&1; then
+    if _review_cli_available codex; then
         fleet+="codex:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
-    elif command -v opencode >/dev/null 2>&1; then
+    elif _review_cli_available opencode; then
         fleet+="opencode:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
-    elif command -v copilot >/dev/null 2>&1; then
+    elif _review_cli_available copilot; then
         fleet+="copilot:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
-    else
+    elif _review_provider_allowed "claude-sonnet"; then
         fleet+="claude-sonnet:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
     fi
 
     # security-reviewer: Gemini (Google) → Qwen → Copilot → claude-sonnet fallback
     # Prefer different family from logic-reviewer for diversity
-    if command -v gemini >/dev/null 2>&1; then
+    if _review_cli_available gemini; then
         fleet+="gemini:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
-    elif command -v qwen >/dev/null 2>&1; then
+    elif _review_cli_available qwen; then
         fleet+="qwen:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
-    elif command -v copilot >/dev/null 2>&1; then
+    elif _review_cli_available copilot; then
         fleet+="copilot:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
-    else
+    elif _review_provider_allowed "claude-sonnet"; then
         fleet+="claude-sonnet:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
     fi
 
     # arch-reviewer: claude-sonnet (always available — best at holistic analysis)
-    fleet+="claude-sonnet:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
+    if _review_provider_allowed "claude-sonnet"; then
+        fleet+="claude-sonnet:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
+    fi
 
     # cve-reviewer: Perplexity → Gemini search → Copilot → Qwen → claude WebSearch
-    if command -v perplexity >/dev/null 2>&1 || [[ -n "${PERPLEXITY_API_KEY:-}" ]]; then
+    if _review_provider_allowed perplexity && { command -v perplexity >/dev/null 2>&1 || [[ -n "${PERPLEXITY_API_KEY:-}" ]]; }; then
         fleet+="perplexity:cve-reviewer:known CVEs, library advisories, live web search"$'\n'
-    elif command -v gemini >/dev/null 2>&1; then
+    elif _review_cli_available gemini; then
         fleet+="gemini:cve-reviewer:known CVEs via web search, library advisories"$'\n'
         log INFO "CVE lookup: Perplexity unavailable, using Gemini search"
-    elif command -v copilot >/dev/null 2>&1; then
+    elif _review_cli_available copilot; then
         fleet+="copilot:cve-reviewer:known CVEs via web search, library advisories"$'\n'
         log INFO "CVE lookup: Perplexity+Gemini unavailable, using Copilot"
-    elif command -v qwen >/dev/null 2>&1; then
+    elif _review_cli_available qwen; then
         fleet+="qwen:cve-reviewer:known CVEs via web search, library advisories"$'\n'
         log INFO "CVE lookup: Perplexity+Gemini unavailable, using Qwen"
-    else
+    elif _review_provider_allowed "claude-sonnet"; then
         fleet+="claude-sonnet:cve-reviewer:known CVEs via WebSearch tool, library advisories"$'\n'
         log WARN "CVE lookup: no dedicated web-search provider, using Claude WebSearch (degraded)"
     fi
@@ -244,6 +262,7 @@ print_provider_report() {
     local had_fallback=false
 
     while IFS='|' read -r provider status detail; do
+        _review_provider_allowed "$provider" || continue
         case "$provider" in
             codex)
                 if [[ "$status" == "ok" ]]; then
@@ -284,13 +303,21 @@ print_provider_report() {
     echo "┌─────────────────────────────────────────────┐"
     echo "│ 🐙 Provider Status                          │"
     echo "│                                             │"
-    printf "│ 🔴 Codex:      %-28s│\n" "$codex_status"
-    [[ -n "$codex_detail" ]] && printf "│    → %-38s│\n" "$codex_detail"
-    printf "│ 🟡 Gemini:     %-28s│\n" "$gemini_status"
-    [[ -n "$gemini_detail" ]] && printf "│    → %-38s│\n" "$gemini_detail"
-    printf "│ 🔵 Claude:     %-28s│\n" "$claude_status"
-    printf "│ 🟣 Perplexity: %-28s│\n" "$perplexity_status"
-    [[ -n "$perplexity_detail" ]] && printf "│    → %-38s│\n" "$perplexity_detail"
+    if _review_provider_allowed codex; then
+        printf "│ 🔴 Codex:      %-28s│\n" "$codex_status"
+        [[ -n "$codex_detail" ]] && printf "│    → %-38s│\n" "$codex_detail"
+    fi
+    if _review_provider_allowed gemini; then
+        printf "│ 🟡 Gemini:     %-28s│\n" "$gemini_status"
+        [[ -n "$gemini_detail" ]] && printf "│    → %-38s│\n" "$gemini_detail"
+    fi
+    if _review_provider_allowed claude-sonnet; then
+        printf "│ 🔵 Claude:     %-28s│\n" "$claude_status"
+    fi
+    if _review_provider_allowed perplexity; then
+        printf "│ 🟣 Perplexity: %-28s│\n" "$perplexity_status"
+        [[ -n "$perplexity_detail" ]] && printf "│    → %-38s│\n" "$perplexity_detail"
+    fi
     if [[ "$had_fallback" == "true" ]]; then
         echo "│                                             │"
         echo "│ ⚠ Some providers failed — run /octo:doctor  │"
@@ -910,6 +937,6 @@ render_review_summary() {
     echo "| Nit | $nit_count |"
     echo "| Pre-existing | $preexisting_count |"
     echo ""
-    echo "_Reviewed by Codex + Gemini + Claude + Perplexity fleet_"
+    echo "_Reviewed by the configured Octopus provider fleet_"
     echo "_See inline comments for details_"
 }

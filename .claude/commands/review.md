@@ -17,7 +17,7 @@ Three review entry points coexist in Claude Code v2.1.111+ — pick the right on
 |---|---|---|---|
 | Claude-native `/review` | Single-turn, current diff | Claude only | Ordinary review, one perspective suffices |
 | `/ultrareview` (CC v2.1.111+) | Cloud, parallel multi-agent | Claude parallelism | Pre-merge PR review without leaving CC |
-| `/octo:review` (this) | Multi-LLM, inline PR comments | Codex + Gemini + Claude | Provider diversity, adversarial cross-check, stricter escalation |
+| `/octo:review` (this) | Multi-LLM, inline PR comments | Configured provider fleet, commonly Codex + Claude | Provider diversity, adversarial cross-check, stricter escalation |
 
 Use `/octo:review` when the user explicitly wants enhanced multi-LLM review, multiple model opinions, provider diversity, or stricter escalation workflows. If CC v2.1.111+ and the user just says "review this", prefer `/ultrareview` unless provider diversity is specifically requested.
 
@@ -28,7 +28,6 @@ When the user invokes this command (e.g., `/octo:review <arguments>`):
 ```bash
 echo "PROVIDER_CHECK_START"
 printf "codex:%s\n" "$(command -v codex >/dev/null 2>&1 && echo available || echo missing)"
-printf "gemini:%s\n" "$(command -v gemini >/dev/null 2>&1 && echo available || echo missing)"
 printf "perplexity:%s\n" "$([ -n "${PERPLEXITY_API_KEY:-}" ] && echo available || echo missing)"
 printf "opencode:%s\n" "$(command -v opencode >/dev/null 2>&1 && echo available || echo missing)"
 printf "copilot:%s\n" "$(command -v copilot >/dev/null 2>&1 && echo available || echo missing)"
@@ -45,7 +44,6 @@ Then display the banner with ACTUAL results:
 
 Providers:
 🔴 Codex CLI: [Available ✓ / Not installed ✗] — logic and correctness
-🟡 Gemini CLI: [Available ✓ / Not installed ✗] — security and edge cases
 🔵 Claude: Available ✓ — architecture and synthesis
 🟣 Perplexity: [Available ✓ / Not configured ✗] — CVE lookup
 ```
@@ -183,9 +181,9 @@ If a project already has `graphify-out/GRAPH_REPORT.md`, `/octo:review` also pas
 ## What `/octo:review` checks
 
 - Correctness: logic bugs, edge cases, regressions, unreachable code
-- Security: OWASP Top 10, injection, auth flaws, data exposure (Gemini specialist)
+- Security: OWASP Top 10, injection, auth flaws, data exposure
 - Architecture: API contracts, integration issues, breaking changes (Claude specialist)
-- CVE lookup: known vulnerabilities in dependencies (Perplexity → Gemini → Claude WebSearch)
+- CVE lookup: known vulnerabilities in dependencies (Perplexity or configured fallback)
 - TDD compliance and test-first evidence (when provenance is AI-assisted/autonomous)
 - Autonomous codegen risk: placeholder logic, unwired code, speculative abstractions
 

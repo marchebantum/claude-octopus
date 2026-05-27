@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/../helpers/test-framework.sh"
 test_suite "Provider allowlist"
 
 ALLOWLIST_LIB="$PROJECT_ROOT/scripts/lib/provider-allowlist.sh"
+REVIEW_LIB="$PROJECT_ROOT/scripts/lib/review.sh"
 CHECK_PROVIDERS="$PROJECT_ROOT/scripts/helpers/check-providers.sh"
 BUILD_FLEET="$PROJECT_ROOT/scripts/helpers/build-fleet.sh"
 MODEL_CONFIG="$PROJECT_ROOT/scripts/helpers/octo-model-config.sh"
@@ -22,9 +23,14 @@ else
 fi
 
 source "$ALLOWLIST_LIB"
+empty_config="$TEST_TMP_DIR/empty-allowlist-config"
+mkdir -p "$empty_config"
 
 test_case "unset allowlist permits every provider"
-if unset OCTO_ALLOWED_PROVIDERS && octo_provider_allowed codex && octo_provider_allowed gemini && octo_provider_allowed claude-sonnet; then
+if unset OCTO_ALLOWED_PROVIDERS &&
+   OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed codex &&
+   OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed gemini &&
+   OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed claude-sonnet; then
     test_pass
 else
     test_fail "unset allowlist should allow all providers"
@@ -93,6 +99,19 @@ fleet=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="claude gemini" "$
 if assert_contains "$fleet" "gemini|" "gemini should be eligible" &&
    assert_contains "$fleet" "claude-sonnet|" "claude alias should allow claude-sonnet" &&
    assert_not_contains "$fleet" "codex|" "codex should not be emitted"; then
+    test_pass
+fi
+
+test_case "canonical review fleet excludes disallowed providers"
+fleet=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="codex claude" bash -c '
+    log() { :; }
+    source "$1"
+    source "$2"
+    build_review_fleet
+' bash "$ALLOWLIST_LIB" "$REVIEW_LIB")
+if assert_contains "$fleet" "codex:" "codex should be eligible" &&
+   assert_contains "$fleet" "claude-sonnet:" "claude alias should allow claude-sonnet" &&
+   assert_not_contains "$fleet" "gemini:" "gemini should not be emitted"; then
     test_pass
 fi
 
