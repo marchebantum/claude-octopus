@@ -1,14 +1,14 @@
 {
   "name": "octo",
   "version": "9.41.0",
-  "description": "v9.41.0 \u2014 /octo:council promoted to first-class workflow: structured 3/5/7-persona deliberation across Claude, Codex, Gemini, OpenCode with goal modes, adversarial styles, benchmark-aware routing, quorum/veto gates, and gated implementation handoff. Run /octo:setup.",
+  "description": "v9.41.0 \u2014 Marche fork defaults Octopus to Claude Opus 4.7 plus Codex GPT-5.5, with Gemini removed from the supported provider pool. Run /octo:setup only when you need to refresh local config.",
   "author": {
     "name": "nyldn",
     "url": "https://github.com/nyldn"
   },
   "license": "MIT",
-  "repository": "https://github.com/nyldn/claude-octopus",
-  "homepage": "https://github.com/nyldn/claude-octopus",
+  "repository": "https://github.com/marchebantum/claude-octopus",
+  "homepage": "https://github.com/marchebantum/claude-octopus",
   "keywords": [
     "multi-llm",
     "multi-agent",
@@ -16,8 +16,7 @@
     "claude-code-plugin",
     "double-diamond",
     "codex",
-    "gemini",
-    "copilot",
+    "claude",
     "code-review",
     "automation"
   ],

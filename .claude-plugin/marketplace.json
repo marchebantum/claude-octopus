@@ -1,11 +1,11 @@
 {
-  "name": "nyldn-plugins",
+  "name": "marche-octo",
   "owner": {
-    "name": "nyldn",
-    "url": "https://github.com/nyldn"
+    "name": "marchebantum",
+    "url": "https://github.com/marchebantum"
   },
   "metadata": {
-    "description": "nyldn plugins for Claude Code workflows.",
+    "description": "Marche's Octo plugin build for Claude + Codex workflows.",
     "version": "9.41.0"
   },
   "plugins": [
@@ -13,16 +13,16 @@
       "name": "octo",
       "source": {
         "source": "url",
-        "url": "https://github.com/nyldn/claude-octopus.git"
+        "url": "https://github.com/marchebantum/claude-octopus.git"
       },
-      "description": "v9.41.0 - /octo:council promoted to first-class workflow: structured 3/5/7-persona deliberation across Claude, Codex, Gemini, OpenCode with goal modes, adversarial styles, benchmark-aware routing, quorum/veto gates, and gated implementation handoff. 32 personas, 48 commands, 54 skills. Run /octo:setup.",
+      "description": "v9.41.0 - Marche fork: Claude Opus 4.7 + Codex GPT-5.5 only, with Gemini intentionally removed from the active provider pool. Run /octo:setup only when refreshing local config.",
       "version": "9.41.0",
       "author": {
-        "name": "nyldn",
-        "url": "https://github.com/nyldn"
+        "name": "marchebantum",
+        "url": "https://github.com/marchebantum"
       },
-      "repository": "https://github.com/nyldn/claude-octopus",
-      "homepage": "https://github.com/nyldn/claude-octopus",
+      "repository": "https://github.com/marchebantum/claude-octopus",
+      "homepage": "https://github.com/marchebantum/claude-octopus",
       "license": "MIT",
       "keywords": [
         "multi-llm",
@@ -30,7 +30,7 @@
         "orchestration",
         "claude-code-plugin",
         "codex",
-        "gemini",
+        "claude",
         "code-review",
         "automation"
       ],
