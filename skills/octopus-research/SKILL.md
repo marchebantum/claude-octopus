@@ -76,12 +76,13 @@ AskUserQuestion({
 
 ### STEP 2: Provider Detection & Visual Indicators (MANDATORY)
 
-**Check provider availability:**
+**Check provider availability through the shared allowlist-aware helper:**
 
 ```bash
-command -v codex &> /dev/null && codex_status="Available ✓" || codex_status="Not installed ✗"
-command -v gemini &> /dev/null && gemini_status="Available ✓" || gemini_status="Not installed ✗"
+bash "${HOME}/.claude-octopus/plugin/scripts/helpers/check-providers.sh"
 ```
+
+Only show providers returned by the helper. Providers filtered out by `OCTO_ALLOWED_PROVIDERS` or `~/.claude-octopus/config/provider-allowlist` are intentionally absent, not missing.
 
 **Display this banner BEFORE orchestrate.sh execution:**
 
@@ -91,7 +92,6 @@ command -v gemini &> /dev/null && gemini_status="Available ✓" || gemini_status
 
 Provider Availability:
 🔴 Codex CLI: ${codex_status}
-🟡 Gemini CLI: ${gemini_status}
 🔵 Claude: Available ✓ (Strategic synthesis)
 
 Research Parameters:
@@ -104,9 +104,8 @@ Research Parameters:
 ```
 
 **Validation:**
-- If BOTH Codex and Gemini unavailable → STOP, suggest: `/octo:setup`
-- If ONE unavailable → Continue with available provider(s)
-- If BOTH available → Proceed normally
+- If no configured external provider is available, continue with Claude-only research and report the reduced provider coverage.
+- If one or more configured external providers are available, proceed normally.
 
 **DO NOT PROCEED TO STEP 3 until banner displayed.**
 
@@ -167,7 +166,7 @@ Read the synthesis file and format according to `format_choice`:
 **Include attribution:**
 ```
 *Multi-AI Research powered by Claude Octopus*
-*Providers: 🔴 Codex | 🟡 Gemini | 🔵 Claude*
+*Providers: configured Octopus provider fleet*
 *Full synthesis: $SYNTHESIS_FILE*
 ```
 
@@ -180,7 +179,7 @@ Create tasks to track execution progress:
 // At start of skill execution
 TaskCreate({
   subject: "Execute deep research with multi-AI providers",
-  description: "Run orchestrate.sh probe with Codex and Gemini for deep research",
+  description: "Run orchestrate.sh probe with the configured provider fleet for deep research",
   activeForm: "Running multi-AI deep research"
 })
 

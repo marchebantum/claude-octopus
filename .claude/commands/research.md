@@ -96,7 +96,7 @@ Just use natural language:
 ## What Is Research?
 
 An alias for the **Discover** phase of the Double Diamond methodology:
-- Multi-AI research (Claude + Gemini + Codex)
+- Multi-AI research using the configured provider fleet, commonly Claude + Codex
 - Comprehensive analysis of options
 - Trade-off evaluation
 - Best practice identification

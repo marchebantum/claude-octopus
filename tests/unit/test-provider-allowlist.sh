@@ -87,10 +87,10 @@ SH
     chmod +x "$mock_bin/$cmd"
 done
 
-test_case "check-providers reports disallowed installed providers as missing"
+test_case "check-providers omits disallowed installed providers"
 output=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="gemini" "$CHECK_PROVIDERS")
 if assert_contains "$output" "gemini:available" "gemini should remain available" &&
-   assert_contains "$output" "codex:missing" "codex should be hidden by allowlist"; then
+   assert_not_contains "$output" "codex:" "codex should be hidden by allowlist"; then
     test_pass
 fi
 

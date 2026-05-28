@@ -568,11 +568,12 @@ ${heuristic_ctx}"
 
             # v9.2.2: All agents use stdin-based prompt delivery to avoid ARG_MAX limits (Issue #173)
             # Previously only gemini used stdin; codex/claude passed prompt as CLI arg which fails on large diffs
-            if printf '%s' "$enhanced_prompt" | run_with_timeout "$TIMEOUT" "${cmd_array[@]}" 2> "$temp_errors" | tee "$raw_output" > "$temp_output"; then
+            if printf '%s' "$enhanced_prompt" | run_with_timeout "$TIMEOUT" "${cmd_array[@]}" > "$temp_output" 2> "$temp_errors"; then
                 exit_code=0
             else
                 exit_code=$?
             fi
+            cp "$temp_output" "$raw_output" 2>/dev/null || true
 
             stop_quota_watcher "$_quota_watcher_pid"
 

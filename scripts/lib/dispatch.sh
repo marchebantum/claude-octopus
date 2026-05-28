@@ -36,23 +36,27 @@ get_agent_command() {
     esac
 
     local sandbox_flag="--sandbox ${codex_sandbox}"
+    local codex_config_flag=""
+    case "${OCTOPUS_CODEX_IGNORE_USER_CONFIG:-true}" in
+        true|1|yes|on) codex_config_flag="--ignore-user-config" ;;
+    esac
 
     case "$agent_type" in
         codex|codex-standard|codex-max|codex-mini|codex-general)
             model=$(get_agent_model "$agent_type" "$phase" "$role")
-            echo "codex exec --skip-git-repo-check --model ${model} ${sandbox_flag} -"
+            echo "codex exec --skip-git-repo-check ${codex_config_flag} --model ${model} ${sandbox_flag} -"
             ;;
         codex-spark)  # v8.9.0: Ultra-fast Spark model (1000+ tok/s)
             model=$(get_agent_model "$agent_type" "$phase" "$role")
-            echo "codex exec --skip-git-repo-check --model ${model} ${sandbox_flag} -"
+            echo "codex exec --skip-git-repo-check ${codex_config_flag} --model ${model} ${sandbox_flag} -"
             ;;
         codex-reasoning)  # v8.9.0: Reasoning models (o3, o3)
             model=$(get_agent_model "$agent_type" "$phase" "$role")
-            echo "codex exec --skip-git-repo-check --model ${model} ${sandbox_flag} -"
+            echo "codex exec --skip-git-repo-check ${codex_config_flag} --model ${model} ${sandbox_flag} -"
             ;;
         codex-large-context)  # v8.9.0: 1M context models (gpt-4.1)
             model=$(get_agent_model "$agent_type" "$phase" "$role")
-            echo "codex exec --skip-git-repo-check --model ${model} ${sandbox_flag} -"
+            echo "codex exec --skip-git-repo-check ${codex_config_flag} --model ${model} ${sandbox_flag} -"
             ;;
         gemini|gemini-fast|gemini-image)
             model=$(get_agent_model "$agent_type" "$phase" "$role")
@@ -76,7 +80,7 @@ get_agent_command() {
             esac
             echo "${gemini_env} ${gemini_exec} ${model} ${gemini_flags}"
             ;;
-        codex-review) echo "codex exec --skip-git-repo-check review" ;; # Code review mode (no sandbox support)
+        codex-review) echo "codex exec --skip-git-repo-check ${codex_config_flag} review" ;; # Code review mode (no sandbox support)
         claude) echo "claude${_BARE_OPT} --print" ;;                         # Claude Sonnet 4.6
         claude-sonnet) echo "claude${_BARE_OPT} --print --model sonnet" ;;        # Claude Sonnet explicit
         claude-opus)

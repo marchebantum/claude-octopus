@@ -20,7 +20,7 @@ provider_status() {
     local provider="$1"
     local status="$2"
     if declare -f octo_provider_allowed >/dev/null 2>&1 && ! octo_provider_allowed "$provider"; then
-        status="missing"
+        return 0
     fi
     printf "%s:%s\n" "$provider" "$status"
 }
