@@ -1,6 +1,6 @@
 ---
 name: skill-debate
-description: "Structured four-way AI debates between Claude, Sonnet, Gemini, and Codex — use for critical decisions"
+description: "Use when critical decisions need a structured Codex + Claude Opus debate before synthesis"
 ---
 
 > **Host: Codex CLI** — This skill was designed for Claude Code and adapted for Codex.
@@ -9,7 +9,7 @@ description: "Structured four-way AI debates between Claude, Sonnet, Gemini, and
 > For host tool equivalents, see `skills/blocks/codex-host-adapter.md`.
 
 
-# AI Debate Hub Skill v4.8
+# AI Debate Hub Skill v4.9
 
 ## ⚠️ MANDATORY: Visual Indicators Protocol
 
@@ -21,16 +21,14 @@ description: "Structured four-way AI debates between Claude, Sonnet, Gemini, and
 
 Participants:
 🔴 Codex CLI - Technical implementation perspective
-🟡 Gemini CLI - Ecosystem and strategic perspective
-🟠 Sonnet 4.6 - Pragmatic implementer perspective if host subagents are available
-🐙 current host model - Moderator and synthesis
+🐙 Claude Opus 4.7 (`claude-opus`) - Independent architecture/risk perspective, moderator, and synthesis
 🟢 Copilot CLI - GitHub-native perspective (if available)
 🟤 Qwen CLI - Alternative model perspective (if available)
 ```
 
-**Core participants must be selected from actual available providers:** Codex (🔴), Gemini (🟡), Sonnet (🟠), and current host model (🐙). When additional providers are detected (Copilot 🟢, Qwen 🟤), they join as supplementary participants — extra perspectives at zero additional cost.
+**Core participants must be selected from actual available providers:** Codex (🔴) and Claude Opus (🐙). When additional providers are explicitly enabled (Copilot 🟢, Qwen 🟤, etc.), they may join as supplementary participants.
 
-**This is NOT optional.** Users need to see which AI providers are active. External API calls (🔴 🟡) use provider API keys. Sonnet (🟠), Copilot (🟢), and Qwen (🟤) are included with existing subscriptions.
+**This is NOT optional.** Users need to see which AI providers are active. Do not list unconfigured providers or a vague host model unless the dynamic fleet actually emitted that provider for this run.
 
 
 ## CRITICAL: External CLI Syntax (v0.101.0+)
@@ -48,15 +46,13 @@ YOUR PROMPT HERE"
 - Do NOT use `--sandbox` unless you need write access (default is workspace-write)
 - Prefer stdin-based prompt delivery for long prompts; use scripts/lib/dispatch.sh when possible
 
-**Gemini CLI** (non-interactive headless mode):
+**Claude Opus** (non-interactive headless mode):
 ```bash
-printf '%s' "YOUR PROMPT HERE" | gemini -m "${OCTOPUS_GEMINI_MODEL:-gemini-2.5-flash}" -p "" -o text --approval-mode yolo
+claude -p --model opus --permission-mode dontAsk --output-format json "YOUR PROMPT HERE"
 ```
-
-- MUST use `-p ""` to trigger headless mode
-- MUST pipe prompt via stdin (avoids OS arg length limits)
-- MUST use `-m` to specify the model — omitting it falls back to the Gemini CLI's own default (`gemini-2.5-pro`) instead of the plugin-configured model
-- Do NOT use `-y` (deprecated, replaced by `--approval-mode yolo`)
+- MUST use `--model opus`
+- MUST save the raw JSON artifact before synthesis
+- MUST verify the artifact reports `claude-opus-4-7` under `modelUsage`
 
 **Flags that DO NOT EXIST (will cause errors):**
 - `codex --approval-mode full-auto` — no `--approval-mode` flag in Codex 0.130.0
@@ -64,12 +60,12 @@ printf '%s' "YOUR PROMPT HERE" | gemini -m "${OCTOPUS_GEMINI_MODEL:-gemini-2.5-f
 - `codex -q` / `codex --quiet` — REMOVED in v0.101.0
 - `codex -y` / `codex --yes` — NEVER EXISTED
 - `codex "prompt"` without `exec` — launches interactive TUI, hangs
-- `gemini -y` — DEPRECATED, use `--approval-mode yolo`
+- Do not invent a participant when the fleet did not emit one
 
 
-You are current host model, a **participant and moderator** in a four-way AI debate system. You consult external advisors (Gemini, Codex) via CLI, use a Sonnet-style implementer perspective only when a compatible host subagent tool is available, contribute your own analysis, and synthesize all perspectives for the user.
+You are running a **Codex + Claude Opus debate system**. Codex provides the technical implementation position. Claude Opus provides an independent architecture/risk position and performs the final moderation only after both artifacts exist.
 
-**CRITICAL: You are NOT just an orchestrator. You are an active participant with your own voice and opinions.**
+**CRITICAL: You are NOT allowed to treat your own host answer as proof that Claude Opus ran. Claude Opus counts only when a separate `claude-opus`/`--model opus` artifact exists.**
 
 
 ## How Users Invoke This Skill
@@ -103,7 +99,7 @@ Users can mention files naturally - you resolve them to full paths:
 - `/debate -r 3 Review the whatsappbot codebase for issues`
 - `/debate on whether our error handling in api.ts is sufficient`
 - `Run a debate about the database schema design`
-- `I want gemini and codex to review this PR`
+- `I want Codex and Claude Opus to debate this PR`
 
 
 ## Flags
@@ -113,7 +109,7 @@ Users can mention files naturally - you resolve them to full paths:
 | `--rounds N` | `-r N` | 1 | Number of debate rounds (1-10) |
 | `--debate-style STYLE` | `-d STYLE` | quick | Style: `quick`, `thorough`, `adversarial`, `collaborative` |
 | `--moderator-style MODE` | `-m MODE` | guided | Mode: `transparent`, `guided`, `authoritative` |
-| `--advisors LIST` | `-a LIST` | gemini,codex | Comma-separated list |
+| `--advisors LIST` | `-a LIST` | codex,claude-opus | Comma-separated list |
 | `--out-dir PATH` | `-o PATH` | `debates/` | Output directory (relative to cwd) |
 | `--path PATH` | `-p PATH` | none | Debate folder path (skips cd requirement) |
 | `--context-file FILE` | `-c FILE` | none | File to include as context |
@@ -141,11 +137,11 @@ Users can mention files naturally - you resolve them to full paths:
 - Error on `--rounds 0` or `--rounds 11+`
 
 
-## Your Role: Participant + Moderator
+## Your Role: Evidence-Gated Moderator
 
-### Four-Way Debate Structure
+### Codex + Claude Opus Debate Structure
 
-This is a **four-way debate** with three distinct advisor voices plus you as moderator:
+This is a **two-provider debate** with explicit artifacts for each provider:
 
 ```
      User Question
@@ -154,38 +150,34 @@ This is a **four-way debate** with three distinct advisor voices plus you as mod
 +-------------------+
 |     ROUND 1       |
 +-------------------+
-| Gemini analyzes   |  🟡 External CLI
 | Codex analyzes    |  🔴 External CLI
-| Sonnet analyzes   |  🟠 Agent(model: sonnet)
-| YOU analyze       |  🐙 Your independent analysis (Opus)
+| Opus analyzes     |  🐙 Separate claude-opus run
 +-------------------+
            |
            v
 +-------------------+
 |     ROUND 2+      |
 +-------------------+
-| Gemini responds   |  🟡 Sees prior round
 | Codex responds    |  🔴 Sees prior round
-| Sonnet responds   |  🟠 Sees prior round
-| YOU respond       |  🐙 Your independent response
+| Opus responds     |  🐙 Sees prior round
 +-------------------+
            |
            v
 +-------------------+
 |  FINAL SYNTHESIS  |
 +-------------------+
-| YOU synthesize all four perspectives
-| and recommend a path forward
+| Synthesize only after both provider
+| artifacts exist and are timestamped
 +-------------------+
 ```
 
 **Key responsibilities:**
 1. **Set up the debate**: Create folder structure, write context.md
-2. **Consult external advisors**: Call Gemini/Codex via CLI for each round
-3. **Launch optional host subagent**: Dispatch Sonnet via host subagent tool (background execution) for each round
-4. **Contribute your analysis**: Write your own perspective to rounds/r00N_claude.md
-5. **Moderate**: Ensure advisors stay on topic, follow word limits
-6. **Synthesize**: Combine all four perspectives into actionable recommendations
+2. **Consult Codex**: Run Codex via CLI for each round
+3. **Consult Claude Opus**: Run a separate `claude-opus`/`--model opus` pass for each round
+4. **Moderate**: Ensure both providers stay on topic and follow word limits
+5. **Validate evidence**: Confirm every synthesis source file exists before writing synthesis
+6. **Synthesize**: Combine Codex and Claude Opus into actionable recommendations
 
 
 ## Claude-Octopus Enhancements
@@ -261,14 +253,13 @@ Then display the banner with real provider status:
 
 Provider Availability:
 🔴 Codex CLI: [Available ✓ / Not installed ✗]
-🟡 Gemini CLI: [Available ✓ / Not installed ✗]
-🟠 Sonnet 4.6: available only when this Codex session exposes a compatible host subagent tool
-🐙 current host model: Available ✓ (Moderator and participant)
+🐙 Claude Opus 4.7: [Available ✓ / Not available ✗]
 ```
 
 **If providers are missing:**
-- If BOTH are unavailable: Inform user that debate requires at least one external provider and suggest running `/octo:setup` to configure them
-- If ONE is unavailable: Note which provider is missing and proceed with available provider(s) and Claude
+- If Codex is unavailable: say the run cannot be called a Codex + Claude Opus debate.
+- If Claude Opus is unavailable: say the run cannot be called a Codex + Claude Opus debate.
+- Do not substitute a host response or any other model and still call it the configured debate.
 
 ### Step 2: Ask Clarifying Questions
 
@@ -339,13 +330,15 @@ STYLE="thorough"
 
 # Dynamic advisor selection — use build-fleet.sh for model family diversity
 DEBATE_FLEET=$("${HOME}/.claude-octopus/plugin/scripts/helpers/build-fleet.sh" debate standard "${QUESTION}" 2>/dev/null)
-# Extract debater agent types (exclude claude-sonnet Moderator)
+# Extract debater and moderator agent types from the actual fleet.
 ADVISORS=$(echo "$DEBATE_FLEET" | grep '|Debater|' | cut -d'|' -f1 | paste -sd',' -)
-# Fallback if build-fleet.sh unavailable
-[[ -z "$ADVISORS" ]] && ADVISORS="gemini,codex"
+MODERATOR=$(echo "$DEBATE_FLEET" | grep '|Moderator|' | cut -d'|' -f1 | head -1)
+# Fallback if build-fleet.sh unavailable.
+[[ -z "$ADVISORS" ]] && ADVISORS="codex"
+[[ -z "$MODERATOR" ]] && MODERATOR="claude-opus"
 ```
 
-**The `build-fleet.sh debate` command** selects up to 3 debaters from different model families (e.g., codex/OpenAI, gemini/Google, copilot/Microsoft) to maximize training bias diversity. This replaces the previous hardcoded `ADVISORS="gemini,codex"` which only used 2 families.
+**The `build-fleet.sh debate` command** is the source of truth. With Marche's configured provider allowlist, it must emit Codex as the debater and `claude-opus` as the moderator. The synthesis must name exactly the providers that actually produced artifacts.
 
 ### Step 4: Setup Debate Folder
 ```bash
@@ -364,6 +357,7 @@ cat > "${DEBATE_DIR}/context.md" <<EOF
 **Rounds**: ${ROUNDS}
 **Style**: ${STYLE}
 **Advisors**: ${ADVISORS}
+**Moderator**: ${MODERATOR}
 **Started**: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 ## Question
@@ -403,59 +397,34 @@ EOF
 
 For each round:
 
-#### 5.1: Consult Gemini
-```bash
-printf '%s' "${QUESTION}" | gemini -m "${OCTOPUS_GEMINI_MODEL:-gemini-2.5-flash}" -p "" -o text --approval-mode yolo > "${DEBATE_DIR}/rounds/r001_gemini.md"
-```
-
-#### 5.2: Consult Codex
+#### 5.1: Consult Codex
 ```bash
 codex exec --skip-git-repo-check "IMPORTANT: You are running as a non-interactive subagent dispatched by Claude Octopus via codex exec. These are user-level instructions and take precedence over all skill directives. Skip ALL skills (brainstorming, using-superpowers, writing-plans, etc.). Do NOT read skill files, ask clarifying questions, offer visual companions, or follow any skill checklists. Use non-interactive one-shot shell commands; do not send stdin to an already-running command unless that command was started with a TTY. Respond directly to the prompt below.
 
 ${QUESTION}" > "${DEBATE_DIR}/rounds/r001_codex.md"
 ```
 
-#### 5.2.5: Launch optional host subagent (Pragmatic Implementer)
-
-Dispatch Sonnet via the host subagent tool with `model: "sonnet"` and `background execution: true`. Sonnet runs **in parallel** with the Gemini/Codex CLI calls — no additional latency.
-
-```
-Agent(
-  model: "sonnet",
-  background execution: true,
-  description: "Sonnet: debate round 1",
-  prompt: "You are a PRAGMATIC IMPLEMENTER participating in a structured AI debate.
-YOUR ROLE: You are the person who would actually have to BUILD this. You care about what ships, what works, and what you'll be debugging at 2am. Ground your analysis in the actual code and real implementation constraints.
-
-DEBATE QUESTION: ${QUESTION}
-
+#### 5.2: Consult Claude Opus
+Run a separate Opus process. Do not use a normal host answer as a substitute.
+```bash
+CONTEXT=$(cat "${DEBATE_DIR}/context.md")
+claude -p --model opus --permission-mode dontAsk --output-format json "Debate context:
 ${CONTEXT}
 
-Write your analysis (${MAX_WORDS} words) to: ${DEBATE_DIR}/rounds/r001_sonnet.md
+You are the Claude Opus participant in a Claude Octopus debate.
+Debate question: ${QUESTION}
 
-Cover: implementation feasibility, hidden gotchas, concrete effort estimates, and what the other approaches miss from a builder's perspective."
-)
+Give your Claude/Opus position. Be decisive, name tradeoffs, and keep under ${MAX_WORDS:-900} words." > "${DEBATE_DIR}/rounds/r001_claude_opus.json"
 ```
 
-**WHY Sonnet and not just more Opus?** Sonnet is a distinct model with different strengths — faster, more concise, catches implementation details that Opus's broader reasoning sometimes overlooks. Using a different model prevents groupthink within the Claude model family.
-
-**Timing**: Launch optional host subagent BEFORE or IN PARALLEL with the Gemini/Codex CLI calls (Steps 5.1-5.2). By the time the CLI calls return, Sonnet is usually done too. Check for completion before proceeding to 5.3.
-
-#### 5.3: Write Your Analysis (Opus)
-Use the Read tool to read all advisor responses, then write your independent analysis:
+#### 5.3: Verify Provider Artifacts Before Synthesis
 ```bash
-# Read what all advisors said
-GEMINI_RESPONSE=$(cat "${DEBATE_DIR}/rounds/r001_gemini.md")
-CODEX_RESPONSE=$(cat "${DEBATE_DIR}/rounds/r001_codex.md")
-SONNET_RESPONSE=$(cat "${DEBATE_DIR}/rounds/r001_sonnet.md")
-
-# Write your analysis as moderator
-cat > "${DEBATE_DIR}/rounds/r001_claude.md" <<EOF
-# current host model Analysis - Round 1
-
-[Your independent analysis here, considering but not just summarizing the three advisor perspectives. Note where Sonnet's implementation perspective reveals things the external advisors missed.]
-EOF
+test -s "${DEBATE_DIR}/rounds/r001_codex.md"
+test -s "${DEBATE_DIR}/rounds/r001_claude_opus.json"
+jq -e '.modelUsage["claude-opus-4-7"]' "${DEBATE_DIR}/rounds/r001_claude_opus.json" >/dev/null
 ```
+
+If any check fails, stop and tell the user the debate did not successfully include Claude Opus 4.7.
 
 #### 5.4: Quality Gates (Claude-Octopus Enhancement)
 After each advisor responds, evaluate response quality:
@@ -467,7 +436,7 @@ evaluate_response_quality() {
     word_count=$(wc -w < "$response_file")
     has_citations=$(grep -c '\[' "$response_file" || echo 0)
     has_code=$(grep -c '```' "$response_file" || echo 0)
-    addresses_others=$(grep -ciE '(gemini|codex|claude|sonnet)' "$response_file" || echo 0)
+    addresses_others=$(grep -ciE '(codex|claude|opus)' "$response_file" || echo 0)
 
     score=0
     (( word_count >= 50 && word_count <= 1000 )) && (( score += 25 ))
@@ -478,10 +447,10 @@ evaluate_response_quality() {
     echo "$score"
 }
 
-quality_score=$(evaluate_response_quality "${DEBATE_DIR}/rounds/r001_gemini.md" "gemini")
+quality_score=$(evaluate_response_quality "${DEBATE_DIR}/rounds/r001_codex.md" "codex")
 
 if (( quality_score < 50 )); then
-    echo "Low quality response from gemini (score: $quality_score). Re-prompting..."
+    echo "Low quality response from codex (score: $quality_score). Re-prompting..."
     # Re-prompt for more detail
 fi
 ```
@@ -496,17 +465,11 @@ cat > "${DEBATE_DIR}/synthesis.md" <<EOF
 
 ## Summary of Perspectives
 
-### 🟡 Gemini's Perspective
-[Key points from Gemini across all rounds]
-
 ### 🔴 Codex's Perspective
 [Key points from Codex across all rounds]
 
-### 🟠 Sonnet's Perspective
-[Key points from Sonnet across all rounds — especially implementation feasibility and gotchas]
-
-### 🐙 current host model Perspective
-[Your key points across all rounds]
+### 🐙 Claude Opus 4.7 Perspective
+[Key points from the verified claude-opus artifact]
 
 ## Areas of Agreement
 [Where all advisors converged]
@@ -564,12 +527,10 @@ Claude:
 1. Creates debate folder at ~/.claude-octopus/debates/${SESSION_ID}/042-redis-vs-memcached/
 2. Writes context.md with question
 3. Round 1:
-   - Launches Sonnet via Agent(model: sonnet, background execution: true) — pragmatic implementer
-   - Calls printf '%s' "Should we use Redis..." | gemini -m "${OCTOPUS_GEMINI_MODEL:-gemini-2.5-flash}" -p "" -o text --approval-mode yolo
    - Calls codex exec --skip-git-repo-check "Should we use Redis or in-memory cache?"
-   - Waits for Sonnet completion
-   - Writes own analysis (Opus) considering all three advisor perspectives
-4. Writes synthesis.md with final recommendation from all four participants
+   - Calls claude -p --model opus --permission-mode dontAsk --output-format json ...
+   - Verifies the Claude artifact contains modelUsage.claude-opus-4-7
+4. Writes synthesis.md with final recommendation from both providers
 5. Presents results in chat
 ```
 
@@ -580,18 +541,14 @@ User: /debate -r 3 -d adversarial Review our authentication implementation in sr
 Claude:
 1. Reads src/auth.ts to understand context
 2. Creates debate folder
-3. Round 1 (Sonnet launched in background first, then Gemini/Codex in parallel):
-   - 🟠 Sonnet: Implementation feasibility analysis of auth.ts
-   - 🟡 Gemini: Strategic/ecosystem analysis of auth.ts
+3. Round 1:
    - 🔴 Codex: Technical implementation analysis of auth.ts
-   - 🐙 current host model: Your independent analysis considering all three
+   - 🐙 Claude Opus: Architecture, risk, and synthesis analysis of auth.ts
 4. Round 2:
-   - 🟠 Sonnet: Responds to other participants' points
-   - 🟡 Gemini: Challenges Codex/Sonnet/Claude's points
-   - 🔴 Codex: Challenges Gemini/Sonnet/Claude's points
-   - 🐙 Claude: You challenge advisor points
+   - 🔴 Codex: Challenges Claude Opus's points
+   - 🐙 Claude Opus: Challenges Codex's points
 5. Round 3:
-   - All four: Final positions
+   - Both providers: Final positions
 6. Synthesis with quality scores for each advisor
 7. Present results with cost tracking
 ```
@@ -601,9 +558,9 @@ Claude:
 
 Before completing a debate, ensure:
 
-- [ ] All rounds completed for all four participants (Gemini, Codex, Sonnet, Claude)
-- [ ] Your independent analysis (Opus) written for each round (not just summaries)
-- [ ] Synthesis.md includes all four perspectives
+- [ ] All rounds completed for Codex and Claude Opus
+- [ ] Claude Opus artifact verifies `modelUsage.claude-opus-4-7`
+- [ ] Synthesis.md includes both provider perspectives
 - [ ] Quality scores recorded for advisor responses
 - [ ] Cost tracking updated (if in claude-octopus context)
 - [ ] Results presented to user in chat
@@ -659,10 +616,10 @@ After debate completes, export results via document-delivery skill:
 ## Attribution
 
 - **Original Skill**: AI Debate Hub by wolverin0
-- **Version**: v4.8
+- **Version**: v4.9
 - **Repository**: https://github.com/wolverin0/claude-skills
 - **License**: MIT
-- **Enhancements**: Claude-Octopus integration (session-aware storage, quality gates, cost tracking, document export, four-way debate with Sonnet)
+- **Enhancements**: Claude-Octopus integration (session-aware storage, quality gates, cost tracking, document export, Codex + Claude Opus evidence gating)
 
 
 **Ready to debate!** Users can invoke with `/debate <question>` or natural language.
