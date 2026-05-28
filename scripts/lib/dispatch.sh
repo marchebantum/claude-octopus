@@ -10,7 +10,7 @@
 
 #                    gpt-5.2-codex, gpt-5.4-mini (budget), gpt-5 (standard), gpt-5.2, gpt-5.1
 # - OpenAI Reasoning: o3, o3-pro (API-key only), o3 (API-key only), o3-mini (API-key only)
-# - OpenAI Large Context: gpt-4.1 (1M ctx, API-key only), gpt-5.4 (1M ctx, API-key only)
+# - OpenAI Large Context: gpt-4.1 (1M ctx, API-key only), gpt-5.5 (default), gpt-5.4
 # - Google Gemini 3.0: gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-3-pro-image-preview
 # Note: "API-key only" models require OPENAI_API_KEY; they are NOT available via ChatGPT subscription/OAuth.
 get_agent_command() {
@@ -223,7 +223,7 @@ ${summary_input}"
     if [[ -n "${OCTOPUS_OVERSIZE_SUMMARIZER:-}" ]]; then
         candidates+=("$OCTOPUS_OVERSIZE_SUMMARIZER")
     fi
-    candidates+=("gemini-fast" "codex-mini" "claude-sonnet" "codex")
+    candidates+=("gemini-fast" "codex-mini" "${OCTOPUS_CLAUDE_AGENT:-claude-opus}" "codex")
 
     local candidate summary previous_strategy previous_debug
     previous_strategy="${OCTOPUS_OVERSIZE_STRATEGY-}"
@@ -553,11 +553,11 @@ find_capable_fallback() {
     local -a candidates=()
     case "$provider" in
         codex)
-            candidates=(gpt-5.4-mini gpt-5.2-codex gpt-5.3-codex gpt-5.4 gpt-5.4-pro o3) ;;
+            candidates=(gpt-5.4-mini gpt-5.2-codex gpt-5.3-codex gpt-5.4 gpt-5.5 gpt-5.4-pro o3) ;;
         gemini)
             candidates=(gemini-3-flash-preview gemini-3.1-pro-preview) ;;
         claude)
-            candidates=(claude-sonnet-4.6 claude-opus-4.6) ;;
+            candidates=(claude-opus-4.7 claude-sonnet-4.6 claude-opus-4.6) ;;
         openrouter)
             candidates=(z-ai/glm-5 moonshotai/kimi-k2.5 deepseek/deepseek-r1-0528) ;;
         perplexity)

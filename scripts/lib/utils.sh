@@ -191,6 +191,8 @@ validate_agent_command() {
             return 0 ;;
         "env NODE_NO_WARNINGS="*) # only allow env with NODE_NO_WARNINGS prefix
             return 0 ;;
+        "env CLAUDE_CODE_EFFORT_LEVEL=xhigh claude "*) # Claude Opus 4.7 high-effort dispatch
+            return 0 ;;
         *)
             _utils_log ERROR "Invalid agent command: $cmd"
             return 1

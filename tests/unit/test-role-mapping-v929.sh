@@ -1,6 +1,6 @@
 #!/bin/bash
 # tests/unit/test-role-mapping-v929.sh
-# Tests v9.29 role mapping refresh (Opus 4.7 for planning/security, GPT-5.4 for code-review/implementation).
+# Tests v9.29 role mapping refresh (Opus 4.7 for Claude roles, GPT-5.5 for Codex roles).
 # Ensures:
 #   - New roles (code-reviewer, security-reviewer, implementer-heavy) resolve correctly
 #   - Legacy alias (reviewer) still maps to code-reviewer equivalent
@@ -47,15 +47,15 @@ test_architect_is_opus() {
     fi
 }
 
-test_code_reviewer_is_gpt_54() {
-    test_case "code-reviewer → codex-review:gpt-5.4"
+test_code_reviewer_is_gpt_55() {
+    test_case "code-reviewer → codex-review:gpt-5.5"
     unset OCTOPUS_LEGACY_ROLES
     local mapping
     mapping=$(get_role_mapping "code-reviewer")
-    if [[ "$mapping" == "codex-review:gpt-5.4" ]]; then
+    if [[ "$mapping" == "codex-review:gpt-5.5" ]]; then
         test_pass
     else
-        test_fail "expected codex-review:gpt-5.4, got $mapping"
+        test_fail "expected codex-review:gpt-5.5, got $mapping"
     fi
 }
 
@@ -84,15 +84,15 @@ test_security_reviewer_is_opus() {
     fi
 }
 
-test_implementer_stays_gpt_54() {
-    test_case "implementer → codex:gpt-5.4 (unchanged from v9.28)"
+test_implementer_is_gpt_55() {
+    test_case "implementer → codex:gpt-5.5"
     unset OCTOPUS_LEGACY_ROLES
     local mapping
     mapping=$(get_role_mapping "implementer")
-    if [[ "$mapping" == "codex:gpt-5.4" ]]; then
+    if [[ "$mapping" == "codex:gpt-5.5" ]]; then
         test_pass
     else
-        test_fail "expected codex:gpt-5.4, got $mapping"
+        test_fail "expected codex:gpt-5.5, got $mapping"
     fi
 }
 
@@ -120,15 +120,15 @@ test_strategist_is_opus_47() {
     fi
 }
 
-test_synthesizer_is_sonnet() {
-    test_case "synthesizer → claude:claude-sonnet-4.6 (unchanged)"
+test_synthesizer_is_opus_47() {
+    test_case "synthesizer → claude-opus:claude-opus-4.7"
     unset OCTOPUS_LEGACY_ROLES
     local mapping
     mapping=$(get_role_mapping "synthesizer")
-    if [[ "$mapping" == "claude:claude-sonnet-4.6" ]]; then
+    if [[ "$mapping" == "claude-opus:claude-opus-4.7" ]]; then
         test_pass
     else
-        test_fail "expected claude:claude-sonnet-4.6, got $mapping"
+        test_fail "expected claude-opus:claude-opus-4.7, got $mapping"
     fi
 }
 
@@ -137,28 +137,28 @@ test_synthesizer_is_sonnet() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 test_legacy_architect_is_gpt_54() {
-    test_case "OCTOPUS_LEGACY_ROLES=1: architect → codex:gpt-5.4 (v9.28 behavior)"
+    test_case "OCTOPUS_LEGACY_ROLES=1: architect → codex:gpt-5.5"
     export OCTOPUS_LEGACY_ROLES=1
     local mapping
     mapping=$(get_role_mapping "architect")
     unset OCTOPUS_LEGACY_ROLES
-    if [[ "$mapping" == "codex:gpt-5.4" ]]; then
+    if [[ "$mapping" == "codex:gpt-5.5" ]]; then
         test_pass
     else
-        test_fail "expected codex:gpt-5.4 under legacy, got $mapping"
+        test_fail "expected codex:gpt-5.5 under legacy, got $mapping"
     fi
 }
 
 test_legacy_security_reviewer_falls_back() {
-    test_case "OCTOPUS_LEGACY_ROLES=1: security-reviewer → codex-review:gpt-5.4 (unified v9.28 reviewer)"
+    test_case "OCTOPUS_LEGACY_ROLES=1: security-reviewer → codex-review:gpt-5.5"
     export OCTOPUS_LEGACY_ROLES=1
     local mapping
     mapping=$(get_role_mapping "security-reviewer")
     unset OCTOPUS_LEGACY_ROLES
-    if [[ "$mapping" == "codex-review:gpt-5.4" ]]; then
+    if [[ "$mapping" == "codex-review:gpt-5.5" ]]; then
         test_pass
     else
-        test_fail "expected codex-review:gpt-5.4 under legacy, got $mapping"
+        test_fail "expected codex-review:gpt-5.5 under legacy, got $mapping"
     fi
 }
 
@@ -192,14 +192,14 @@ test_get_role_agent_for_architect() {
 }
 
 test_get_role_model_for_code_reviewer() {
-    test_case "get_role_model code-reviewer → gpt-5.4"
+    test_case "get_role_model code-reviewer → gpt-5.5"
     unset OCTOPUS_LEGACY_ROLES
     local model
     model=$(get_role_model "code-reviewer")
-    if [[ "$model" == "gpt-5.4" ]]; then
+    if [[ "$model" == "gpt-5.5" ]]; then
         test_pass
     else
-        test_fail "expected gpt-5.4, got $model"
+        test_fail "expected gpt-5.5, got $model"
     fi
 }
 
@@ -208,13 +208,13 @@ test_get_role_model_for_code_reviewer() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 test_architect_is_opus
-test_code_reviewer_is_gpt_54
+test_code_reviewer_is_gpt_55
 test_reviewer_alias_for_code_reviewer
 test_security_reviewer_is_opus
-test_implementer_stays_gpt_54
+test_implementer_is_gpt_55
 test_implementer_heavy_is_opus
 test_strategist_is_opus_47
-test_synthesizer_is_sonnet
+test_synthesizer_is_opus_47
 test_legacy_architect_is_gpt_54
 test_legacy_security_reviewer_falls_back
 test_legacy_strategist_is_opus_46

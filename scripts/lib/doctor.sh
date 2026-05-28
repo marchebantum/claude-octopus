@@ -35,6 +35,14 @@ doctor_add() {
     DOCTOR_RESULTS_DETAIL+=("$detail")
 }
 
+_doctor_provider_allowed() {
+    if declare -f octo_provider_allowed >/dev/null 2>&1; then
+        octo_provider_allowed "$1"
+        return $?
+    fi
+    return 0
+}
+
 # --- Category 1: Providers ---
 # v8.39.0: Update external CLI dependencies to latest versions
 cmd_update_clis() {
@@ -112,7 +120,9 @@ doctor_check_providers() {
     fi
 
     # Codex CLI
-    if command -v codex &>/dev/null; then
+    if ! _doctor_provider_allowed codex; then
+        :
+    elif command -v codex &>/dev/null; then
         local codex_ver codex_path
         codex_ver=$(codex --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
         codex_path=$(command -v codex)
@@ -130,7 +140,9 @@ doctor_check_providers() {
     fi
 
     # Gemini CLI
-    if command -v gemini &>/dev/null; then
+    if ! _doctor_provider_allowed gemini; then
+        :
+    elif command -v gemini &>/dev/null; then
         local gemini_ver gemini_path
         gemini_ver=$(gemini --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
         gemini_path=$(command -v gemini)
@@ -148,7 +160,9 @@ doctor_check_providers() {
     fi
 
     # Perplexity API (v8.24.0 - optional)
-    if [[ -n "${PERPLEXITY_API_KEY:-}" ]]; then
+    if ! _doctor_provider_allowed perplexity; then
+        :
+    elif [[ -n "${PERPLEXITY_API_KEY:-}" ]]; then
         doctor_add "perplexity-api" "providers" "pass" \
             "Perplexity API configured" "PERPLEXITY_API_KEY set — web search enabled in discover workflows"
     else
@@ -157,7 +171,9 @@ doctor_check_providers() {
     fi
 
     # Ollama (local LLM — optional)
-    if command -v ollama &>/dev/null; then
+    if ! _doctor_provider_allowed ollama; then
+        :
+    elif command -v ollama &>/dev/null; then
         local ollama_health
         ollama_health=$(curl -sf http://localhost:11434/api/tags 2>/dev/null) || true
         if [[ -n "$ollama_health" ]]; then
@@ -190,7 +206,9 @@ doctor_check_providers() {
     fi
 
     # GitHub Copilot CLI (optional — zero additional cost, uses GitHub subscription)
-    if command -v copilot &>/dev/null; then
+    if ! _doctor_provider_allowed copilot; then
+        :
+    elif command -v copilot &>/dev/null; then
         local copilot_auth="none"
         if [[ -n "${COPILOT_GITHUB_TOKEN:-}" ]]; then
             copilot_auth="env:COPILOT_GITHUB_TOKEN"
@@ -226,7 +244,9 @@ doctor_check_providers() {
     fi
 
     # Qwen CLI (optional — free tier)
-    if command -v qwen &>/dev/null; then
+    if ! _doctor_provider_allowed qwen; then
+        :
+    elif command -v qwen &>/dev/null; then
         local qwen_auth="none"
         if [[ -f "${HOME}/.qwen/oauth_creds.json" ]]; then
             qwen_auth="oauth"
@@ -258,7 +278,9 @@ doctor_check_providers() {
     fi
 
     # Cursor Agent CLI (optional — Grok 4.20 via Cursor subscription)
-    if declare -f _is_cursor_agent_binary >/dev/null 2>&1 && _is_cursor_agent_binary; then
+    if ! _doctor_provider_allowed cursor-agent; then
+        :
+    elif declare -f _is_cursor_agent_binary >/dev/null 2>&1 && _is_cursor_agent_binary; then
         local cursor_auth="none"
         if [[ -n "${CURSOR_API_KEY:-}" ]]; then
             cursor_auth="env:CURSOR_API_KEY"
@@ -278,7 +300,9 @@ doctor_check_providers() {
     fi
 
     # Vibe CLI (optional — Mistral Vibe interactive CLI)
-    if command -v vibe &>/dev/null; then
+    if ! _doctor_provider_allowed vibe; then
+        :
+    elif command -v vibe &>/dev/null; then
         local vibe_auth="none"
         if [[ -f "${HOME}/.vibe/.env" ]] && grep -Eq '^[[:space:]]*MISTRAL_API_KEY=' "${HOME}/.vibe/.env" 2>/dev/null; then
             vibe_auth="env-file"
@@ -300,7 +324,9 @@ doctor_check_providers() {
     fi
 
     # OpenCode CLI (optional — multi-provider router, v9.11.0)
-    if command -v opencode &>/dev/null; then
+    if ! _doctor_provider_allowed opencode; then
+        :
+    elif command -v opencode &>/dev/null; then
         local opencode_ver
         if [[ -n "$_timeout_cmd" ]]; then
             opencode_ver=$("$_timeout_cmd" 3 opencode --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")

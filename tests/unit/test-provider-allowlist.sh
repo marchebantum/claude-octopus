@@ -14,6 +14,7 @@ REVIEW_LIB="$PROJECT_ROOT/scripts/lib/review.sh"
 CHECK_PROVIDERS="$PROJECT_ROOT/scripts/helpers/check-providers.sh"
 BUILD_FLEET="$PROJECT_ROOT/scripts/helpers/build-fleet.sh"
 MODEL_CONFIG="$PROJECT_ROOT/scripts/helpers/octo-model-config.sh"
+DOCTOR_LIB="$PROJECT_ROOT/scripts/lib/doctor.sh"
 
 test_case "allowlist helper has valid bash syntax"
 if bash -n "$ALLOWLIST_LIB"; then
@@ -30,7 +31,8 @@ test_case "unset allowlist permits every provider"
 if unset OCTO_ALLOWED_PROVIDERS &&
    OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed codex &&
    OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed gemini &&
-   OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed claude-sonnet; then
+   OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed claude-sonnet &&
+   OCTOPUS_CONFIG_DIR="$empty_config" octo_provider_allowed claude-opus; then
     test_pass
 else
     test_fail "unset allowlist should allow all providers"
@@ -39,6 +41,7 @@ fi
 test_case "space and comma separated allowlist filters providers"
 if OCTO_ALLOWED_PROVIDERS="claude, gemini ollama" octo_provider_allowed gemini &&
    OCTO_ALLOWED_PROVIDERS="claude, gemini ollama" octo_provider_allowed claude-sonnet &&
+   OCTO_ALLOWED_PROVIDERS="claude, gemini ollama" octo_provider_allowed claude-opus &&
    ! OCTO_ALLOWED_PROVIDERS="claude, gemini ollama" octo_provider_allowed codex; then
     test_pass
 else
@@ -51,6 +54,7 @@ test_case "session allowlist file filters providers without env var"
 if unset OCTO_ALLOWED_PROVIDERS &&
    OCTOPUS_CONFIG_DIR="$session_config" CLAUDE_CODE_SESSION_ID="session/one" "$MODEL_CONFIG" allow claude gemini --session >/dev/null &&
    OCTOPUS_CONFIG_DIR="$session_config" CLAUDE_CODE_SESSION_ID="session/one" octo_provider_allowed claude-sonnet &&
+   OCTOPUS_CONFIG_DIR="$session_config" CLAUDE_CODE_SESSION_ID="session/one" octo_provider_allowed claude-opus &&
    OCTOPUS_CONFIG_DIR="$session_config" CLAUDE_CODE_SESSION_ID="session/one" octo_provider_allowed gemini &&
    ! OCTOPUS_CONFIG_DIR="$session_config" CLAUDE_CODE_SESSION_ID="session/one" octo_provider_allowed codex; then
     test_pass
@@ -102,10 +106,23 @@ if assert_contains "$output" "codex:available" "codex should remain available" &
     test_pass
 fi
 
+test_case "doctor providers omits disallowed installed providers"
+output=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="codex claude" bash -c '
+    source "$1"
+    source "$2"
+    doctor_check_providers >/dev/null
+    printf "%s\n" "${DOCTOR_RESULTS_NAME[@]}"
+' bash "$ALLOWLIST_LIB" "$DOCTOR_LIB")
+if assert_contains "$output" "codex-cli" "codex should be checked" &&
+   assert_not_contains "$output" "gemini-cli" "gemini should be hidden by allowlist"; then
+    test_pass
+fi
+
 test_case "build-fleet excludes disallowed providers"
 fleet=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="claude gemini" "$BUILD_FLEET" review standard "review target" 2>/dev/null)
 if assert_contains "$fleet" "gemini|" "gemini should be eligible" &&
-   assert_contains "$fleet" "claude-sonnet|" "claude alias should allow claude-sonnet" &&
+   assert_contains "$fleet" "claude-opus|" "claude alias should default to claude-opus" &&
+   assert_not_contains "$fleet" "claude-sonnet|" "claude default should not use sonnet" &&
    assert_not_contains "$fleet" "codex|" "codex should not be emitted"; then
     test_pass
 fi
@@ -118,7 +135,8 @@ fleet=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="codex claude" bas
     build_review_fleet
 ' bash "$ALLOWLIST_LIB" "$REVIEW_LIB")
 if assert_contains "$fleet" "codex:" "codex should be eligible" &&
-   assert_contains "$fleet" "claude-sonnet:" "claude alias should allow claude-sonnet" &&
+   assert_contains "$fleet" "claude-opus:" "claude alias should default to claude-opus" &&
+   assert_not_contains "$fleet" "claude-sonnet:" "claude default should not use sonnet" &&
    assert_not_contains "$fleet" "gemini:" "gemini should not be emitted"; then
     test_pass
 fi

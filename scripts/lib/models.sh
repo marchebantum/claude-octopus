@@ -18,7 +18,8 @@ get_model_catalog() {
     local model="$1"
     case "$model" in
         # OpenAI GPT-5.x
-        gpt-5.4)                echo "400|yes|yes|no|codex|premium|active" ;;
+        gpt-5.5)                echo "400|yes|yes|no|codex|premium|active" ;;
+        gpt-5.4)                echo "400|yes|yes|no|codex|premium|legacy" ;;
         gpt-5.4-pro)            echo "400|yes|yes|no|codex|premium|active" ;;
         gpt-5.3-codex)          echo "400|yes|yes|no|codex|standard|active" ;;
         gpt-5.3-codex-spark)    echo "128|yes|no|no|codex|standard|active" ;;
@@ -108,7 +109,7 @@ list_models() {
     done
 
     local -a all_models=(
-        gpt-5.4 gpt-5.4-pro gpt-5.3-codex gpt-5.2-codex
+        gpt-5.5 gpt-5.4 gpt-5.4-pro gpt-5.3-codex gpt-5.2-codex
         gpt-5.4-mini gpt-5.1-codex-max
         o3 o3-pro o3-mini
         gemini-3.1-pro-preview gemini-3-flash-preview gemini-3-pro-image-preview

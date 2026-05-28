@@ -63,12 +63,12 @@ ensure_config() {
   "version": "3.0",
   "providers": {
     "codex": {
-      "default": "gpt-5.4",
-      "fallback": "gpt-5.4",
-      "spark": "gpt-5.4",
+      "default": "gpt-5.5",
+      "fallback": "gpt-5.5",
+      "spark": "gpt-5.5",
       "mini": "gpt-5.4-mini",
       "reasoning": "o3",
-      "large_context": "gpt-5.4"
+      "large_context": "gpt-5.5"
     },
     "gemini": {
       "default": "gemini-3.1-pro-preview",
@@ -77,8 +77,8 @@ ensure_config() {
       "image": "gemini-3-pro-image-preview"
     },
     "claude": {
-      "default": "claude-sonnet-4.6",
-      "opus": "claude-opus-4.6"
+      "default": "claude-opus-4.7",
+      "opus": "claude-opus-4.7"
     },
     "perplexity": {
       "default": "sonar-pro",
@@ -512,7 +512,8 @@ cmd_models() {
 
     # Inline catalog (matches orchestrate.sh get_model_catalog)
     local -a models=(
-        "gpt-5.4|400|yes|yes|no|codex|standard|active"
+        "gpt-5.5|400|yes|yes|no|codex|standard|active"
+        "gpt-5.4|400|yes|yes|no|codex|standard|legacy"
         "gpt-5.4-pro|400|yes|yes|no|codex|premium|active"
         "gpt-5.3-codex|400|yes|yes|no|codex|standard|active"
         "gpt-5.2-codex|400|yes|yes|no|codex|standard|active"
@@ -524,7 +525,8 @@ cmd_models() {
         "gemini-3-flash-preview|1000|yes|yes|no|gemini|budget|active"
         "gemini-3-pro-image-preview|1000|yes|yes|no|gemini|premium|active"
         "claude-sonnet-4.6|200|yes|yes|no|claude|standard|active"
-        "claude-opus-4.6|200|yes|yes|no|claude|premium|active"
+        "claude-opus-4.7|1000|yes|yes|yes|claude|premium|active"
+        "claude-opus-4.6|200|yes|yes|no|claude|premium|legacy"
         "grok-4-20|200|yes|no|no|cursor-agent|standard|active"
         "grok-4-20-thinking|200|yes|no|yes|cursor-agent|premium|active"
         "composer-2-fast|200|yes|no|no|cursor-agent|standard|active"

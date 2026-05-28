@@ -63,6 +63,10 @@ _review_cli_available() {
     command -v "$cmd" >/dev/null 2>&1
 }
 
+_review_default_claude_agent() {
+    echo "${OCTOPUS_CLAUDE_AGENT:-claude-opus}"
+}
+
 _review_fleet_from_config() {
     local config_file="${HOME}/.claude-octopus/config/providers.json"
     [[ ! -f "$config_file" ]] && return 0
@@ -103,7 +107,7 @@ _review_fleet_from_config() {
             claude|claude-sonnet|claude-opus)
                 if [[ "$has_arch" == "false" ]]; then
                     local agent="${provider}"
-                    [[ "$provider" == "claude" ]] && agent="claude-sonnet"
+                    [[ "$provider" == "claude" ]] && agent="$(_review_default_claude_agent)"
                     fleet+="${agent}:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
                     has_arch=true
                 fi
@@ -143,10 +147,12 @@ _review_fleet_from_config() {
 
     [[ -z "$fleet" ]] && return 0
 
-    # Anchor: always include arch-reviewer (claude-sonnet) if config didn't supply one.
+    # Anchor: always include arch-reviewer (configured Claude default) if config didn't supply one.
     # Architecture context bridges per-finding noise from the specialist agents.
-    if [[ "$has_arch" == "false" ]] && _review_provider_allowed "claude-sonnet"; then
-        fleet+="claude-sonnet:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
+    local claude_agent
+    claude_agent="$(_review_default_claude_agent)"
+    if [[ "$has_arch" == "false" ]] && _review_provider_allowed "$claude_agent"; then
+        fleet+="${claude_agent}:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
     fi
 
     log INFO "review fleet: config-driven (.routing.features.review)"
@@ -161,6 +167,8 @@ _review_fleet_from_config() {
 # NOTE: Uses command -v for provider detection — safe with set -euo pipefail.
 build_review_fleet() {
     local fleet=""
+    local claude_agent
+    claude_agent="$(_review_default_claude_agent)"
 
     # v9.31.0: honor wizard-configured participants if present
     fleet=$(_review_fleet_from_config)
@@ -171,18 +179,18 @@ build_review_fleet() {
 
     # ── Cascade fallback (original behavior — no config or empty config) ──
 
-    # logic-reviewer: Codex (OpenAI) → OpenCode → Copilot → claude-sonnet fallback
+    # logic-reviewer: Codex (OpenAI) → OpenCode → Copilot → Claude fallback
     if _review_cli_available codex; then
         fleet+="codex:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
     elif _review_cli_available opencode; then
         fleet+="opencode:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
     elif _review_cli_available copilot; then
         fleet+="copilot:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
-    elif _review_provider_allowed "claude-sonnet"; then
-        fleet+="claude-sonnet:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
+    elif _review_provider_allowed "$claude_agent"; then
+        fleet+="${claude_agent}:logic-reviewer:correctness and logic bugs, edge cases, regressions"$'\n'
     fi
 
-    # security-reviewer: Gemini (Google) → Qwen → Copilot → claude-sonnet fallback
+    # security-reviewer: Gemini (Google) → Qwen → Copilot → Claude fallback
     # Prefer different family from logic-reviewer for diversity
     if _review_cli_available gemini; then
         fleet+="gemini:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
@@ -190,13 +198,13 @@ build_review_fleet() {
         fleet+="qwen:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
     elif _review_cli_available copilot; then
         fleet+="copilot:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
-    elif _review_provider_allowed "claude-sonnet"; then
-        fleet+="claude-sonnet:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
+    elif _review_provider_allowed "$claude_agent"; then
+        fleet+="${claude_agent}:security-reviewer:OWASP vulnerabilities, injection, auth flaws, data exposure"$'\n'
     fi
 
-    # arch-reviewer: claude-sonnet (always available — best at holistic analysis)
-    if _review_provider_allowed "claude-sonnet"; then
-        fleet+="claude-sonnet:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
+    # arch-reviewer: configured Claude default
+    if _review_provider_allowed "$claude_agent"; then
+        fleet+="${claude_agent}:arch-reviewer:architecture, integration, API contracts, breaking changes"$'\n'
     fi
 
     # cve-reviewer: Perplexity → Gemini search → Copilot → Qwen → claude WebSearch
@@ -211,8 +219,8 @@ build_review_fleet() {
     elif _review_cli_available qwen; then
         fleet+="qwen:cve-reviewer:known CVEs via web search, library advisories"$'\n'
         log INFO "CVE lookup: Perplexity+Gemini unavailable, using Qwen"
-    elif _review_provider_allowed "claude-sonnet"; then
-        fleet+="claude-sonnet:cve-reviewer:known CVEs via WebSearch tool, library advisories"$'\n'
+    elif _review_provider_allowed "$claude_agent"; then
+        fleet+="${claude_agent}:cve-reviewer:known CVEs via WebSearch tool, library advisories"$'\n'
         log WARN "CVE lookup: no dedicated web-search provider, using Claude WebSearch (degraded)"
     fi
 
@@ -311,7 +319,7 @@ print_provider_report() {
         printf "│ 🟡 Gemini:     %-28s│\n" "$gemini_status"
         [[ -n "$gemini_detail" ]] && printf "│    → %-38s│\n" "$gemini_detail"
     fi
-    if _review_provider_allowed claude-sonnet; then
+    if _review_provider_allowed "$(_review_default_claude_agent)"; then
         printf "│ 🔵 Claude:     %-28s│\n" "$claude_status"
     fi
     if _review_provider_allowed perplexity; then
@@ -373,8 +381,8 @@ review_run() {
     # v9.0: Preflight — check Codex auth before review pipeline
     if command -v codex >/dev/null 2>&1; then
         if ! check_codex_auth_freshness 2>/dev/null; then
-            log "WARN" "review_run: Codex auth may be stale — review fleet may fall back to claude-sonnet"
-            log "USER" "⚠ Codex auth check failed. Run 'codex auth' or /octo:doctor to fix. Falling back to claude-sonnet for Codex roles."
+            log "WARN" "review_run: Codex auth may be stale — review fleet may fall back to $(_review_default_claude_agent)"
+            log "USER" "⚠ Codex auth check failed. Run 'codex auth' or /octo:doctor to fix. Falling back to $(_review_default_claude_agent) for Codex roles."
             echo "codex|auth-failed|Run: codex auth" >> "$provider_status_file"
         fi
     else
@@ -650,10 +658,12 @@ Return ONLY valid JSON with 'findings' array including verdict field."
     verified_findings=$(run_agent_sync "codex" "$verifier_prompt" "${TIMEOUT:-300}" "code-reviewer" "review") && {
         echo "codex|ok|Round 2 verification" >> "$provider_status_file"
     } || {
-        log WARN "review_run: codex verifier failed, falling back to claude-sonnet"
-        log "USER" "⚠ Round 2: Codex unavailable → claude-sonnet (fallback). Codex API usage will NOT change."
-        echo "codex|fallback|Round 2 → claude-sonnet" >> "$provider_status_file"
-        verified_findings=$(run_agent_sync "claude-sonnet" "$verifier_prompt" "${TIMEOUT:-300}" "code-reviewer" "review") || {
+        local claude_agent
+        claude_agent="$(_review_default_claude_agent)"
+        log WARN "review_run: codex verifier failed, falling back to ${claude_agent}"
+        log "USER" "⚠ Round 2: Codex unavailable → ${claude_agent} (fallback). Codex API usage will NOT change."
+        echo "codex|fallback|Round 2 → ${claude_agent}" >> "$provider_status_file"
+        verified_findings=$(run_agent_sync "$claude_agent" "$verifier_prompt" "${TIMEOUT:-300}" "code-reviewer" "review") || {
             log WARN "review_run: verification failed entirely, using all findings as confirmed"
             verified_findings="{\"findings\":$(echo "$all_findings" | \
                 jq 'map(. + {"verdict":"confirmed"})' 2>/dev/null || echo "[]")}"
@@ -713,7 +723,7 @@ Findings: $(echo "$confirmed_findings" | jq -c '.')
 Return ONLY JSON: {\"findings\": [...ranked, deduplicated findings...]}"
 
     local final_json
-    final_json=$(run_agent_sync "claude-sonnet" "$synthesis_prompt" 120 "code-reviewer" "review") || {
+    final_json=$(run_agent_sync "$(_review_default_claude_agent)" "$synthesis_prompt" 120 "code-reviewer" "review") || {
         log WARN "review_run: synthesis failed, using confirmed findings sorted as-is"
         final_json="{\"findings\":$(echo "$confirmed_findings" | jq -c 'sort_by(.severity)' 2>/dev/null || echo "[]")}"
     }

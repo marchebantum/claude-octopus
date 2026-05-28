@@ -25,6 +25,7 @@ source "${SCRIPT_DIR}/../lib/provider-allowlist.sh" 2>/dev/null || true
 WORKFLOW="${1:-research}"
 INTENSITY="${2:-standard}"
 PROMPT="${3:-}"
+DEFAULT_CLAUDE_AGENT="${OCTOPUS_CLAUDE_AGENT:-claude-opus}"
 
 # ── Provider → Model Family Mapping ──────────────────────────────────────────
 get_family() {
@@ -144,10 +145,10 @@ build_research_fleet() {
     local diverse_arr=($diverse_order)
     local dcount=${#diverse_arr[@]}
 
-    # If no CLI providers at all, just use claude-sonnet
+    # If no CLI providers at all, use the configured Claude default.
     if [[ $dcount -eq 0 ]]; then
-        if octo_provider_allowed claude-sonnet; then
-            diverse_arr=(claude-sonnet)
+        if octo_provider_allowed "$DEFAULT_CLAUDE_AGENT"; then
+            diverse_arr=("$DEFAULT_CLAUDE_AGENT")
             dcount=1
         else
             return 0
@@ -157,10 +158,10 @@ build_research_fleet() {
     case "$INTENSITY" in
         quick)
             local p1="${diverse_arr[0]}"
-            local p2="${diverse_arr[1]:-claude-sonnet}"
+            local p2="${diverse_arr[1]:-$DEFAULT_CLAUDE_AGENT}"
             # Ensure diversity
-            if [[ "$(get_family "$p1")" == "$(get_family "$p2")" && "$p1" != "claude-sonnet" ]]; then
-                p2="claude-sonnet"
+            if [[ "$(get_family "$p1")" == "$(get_family "$p2")" && "$p1" != "$DEFAULT_CLAUDE_AGENT" ]]; then
+                p2="$DEFAULT_CLAUDE_AGENT"
             fi
             emit "$p1" "Problem Analysis" "Analyze the problem space: $PROMPT. Focus on understanding constraints, requirements, and user needs."
             emit "$p2" "Ecosystem Overview" "Research existing solutions and patterns for: $PROMPT. What has been done before? What worked, what failed?"
@@ -171,7 +172,7 @@ build_research_fleet() {
             idx=$((idx + 1))
             emit "${diverse_arr[$((idx % dcount))]}" "Ecosystem Overview" "Research existing solutions and patterns for: $PROMPT. What has been done before? What worked, what failed?"
             idx=$((idx + 1))
-            emit_if_allowed "claude-sonnet" "Edge Cases" "Explore edge cases and potential challenges for: $PROMPT. What could go wrong? What's often overlooked?"
+            emit_if_allowed "$DEFAULT_CLAUDE_AGENT" "Edge Cases" "Explore edge cases and potential challenges for: $PROMPT. What could go wrong? What's often overlooked?"
             emit "${diverse_arr[$((idx % dcount))]}" "Feasibility" "Investigate technical feasibility and dependencies for: $PROMPT. What are the prerequisites?"
             idx=$((idx + 1))
 
@@ -180,7 +181,7 @@ build_research_fleet() {
                 local src
                 src=$(find . -maxdepth 2 -type f \( -name "*.ts" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.js" \) 2>/dev/null | head -1)
                 if [[ -n "${src:-}" ]]; then
-                    emit_if_allowed "claude-sonnet" "Codebase Analysis" "Analyze the LOCAL CODEBASE in the current directory for: $PROMPT. Run: find . -type f -name '*.ts' -o -name '*.py' -o -name '*.js' | head -30, then read key files. Report: tech stack, architecture patterns, file structure, coding conventions, and how they relate to the prompt. Focus on ACTUAL code, not hypotheticals."
+                    emit_if_allowed "$DEFAULT_CLAUDE_AGENT" "Codebase Analysis" "Analyze the LOCAL CODEBASE in the current directory for: $PROMPT. Run: find . -type f -name '*.ts' -o -name '*.py' -o -name '*.js' | head -30, then read key files. Report: tech stack, architecture patterns, file structure, coding conventions, and how they relate to the prompt. Focus on ACTUAL code, not hypotheticals."
                 fi
             fi
             ;;
@@ -190,7 +191,7 @@ build_research_fleet() {
             idx=$((idx + 1))
             emit "${diverse_arr[$((idx % dcount))]}" "Ecosystem Overview" "Research existing solutions and patterns for: $PROMPT. What has been done before? What worked, what failed?"
             idx=$((idx + 1))
-            emit_if_allowed "claude-sonnet" "Edge Cases" "Explore edge cases and potential challenges for: $PROMPT. What could go wrong? What's often overlooked?"
+            emit_if_allowed "$DEFAULT_CLAUDE_AGENT" "Edge Cases" "Explore edge cases and potential challenges for: $PROMPT. What could go wrong? What's often overlooked?"
             emit "${diverse_arr[$((idx % dcount))]}" "Feasibility" "Investigate technical feasibility and dependencies for: $PROMPT. What are the prerequisites?"
             idx=$((idx + 1))
 
@@ -199,7 +200,7 @@ build_research_fleet() {
                 local src
                 src=$(find . -maxdepth 2 -type f \( -name "*.ts" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.js" \) 2>/dev/null | head -1)
                 if [[ -n "${src:-}" ]]; then
-                    emit_if_allowed "claude-sonnet" "Codebase Analysis" "Analyze the LOCAL CODEBASE in the current directory for: $PROMPT. Run: find . -type f -name '*.ts' -o -name '*.py' -o -name '*.js' | head -30, then read key files. Report: tech stack, architecture patterns, file structure, coding conventions, and how they relate to the prompt. Focus on ACTUAL code, not hypotheticals."
+                    emit_if_allowed "$DEFAULT_CLAUDE_AGENT" "Codebase Analysis" "Analyze the LOCAL CODEBASE in the current directory for: $PROMPT. Run: find . -type f -name '*.ts' -o -name '*.py' -o -name '*.js' | head -30, then read key files. Report: tech stack, architecture patterns, file structure, coding conventions, and how they relate to the prompt. Focus on ACTUAL code, not hypotheticals."
                 fi
             fi
 
@@ -217,7 +218,7 @@ build_research_fleet() {
                 local up="${diverse_arr[$((i % dcount))]}"
                 _contains "$used_providers" "$up" || used_providers="$used_providers $up"
             done
-            octo_provider_allowed claude-sonnet && used_providers="$used_providers claude-sonnet"
+            octo_provider_allowed "$DEFAULT_CLAUDE_AGENT" && used_providers="$used_providers $DEFAULT_CLAUDE_AGENT"
             is_available perplexity && used_providers="$used_providers perplexity"
 
             for extra in ${AVAILABLE_CLI[*]:-}; do
@@ -245,28 +246,28 @@ build_research_fleet() {
 # ── Review Fleet ──────────────────────────────────────────────────────────────
 build_review_fleet() {
     local logic_provider
-    logic_provider=$(pick_provider "claude-sonnet" codex opencode copilot)
+    logic_provider=$(pick_provider "$DEFAULT_CLAUDE_AGENT" codex opencode copilot)
     [[ -n "$logic_provider" ]] && emit "$logic_provider" "Logic Reviewer" "Review for correctness and logic bugs, edge cases, regressions in: $PROMPT"
 
     local sec_provider
-    sec_provider=$(pick_provider "claude-sonnet" gemini qwen copilot)
+    sec_provider=$(pick_provider "$DEFAULT_CLAUDE_AGENT" gemini qwen copilot)
     # Ensure different from logic reviewer
-    if [[ -n "$sec_provider" && "$sec_provider" == "$logic_provider" && "$sec_provider" != "claude-sonnet" ]]; then
+    if [[ -n "$sec_provider" && "$sec_provider" == "$logic_provider" && "$sec_provider" != "$DEFAULT_CLAUDE_AGENT" ]]; then
         local alternate_provider
-        alternate_provider=$(pick_provider "" claude-sonnet)
+        alternate_provider=$(pick_provider "" "$DEFAULT_CLAUDE_AGENT")
         if [[ -n "$alternate_provider" && "$alternate_provider" != "$logic_provider" ]]; then
             sec_provider="$alternate_provider"
         fi
     fi
     [[ -n "$sec_provider" ]] && emit "$sec_provider" "Security Reviewer" "Review for OWASP vulnerabilities, injection, auth flaws, data exposure in: $PROMPT"
 
-    emit_if_allowed "claude-sonnet" "Architecture Reviewer" "Review architecture, integration, API contracts, breaking changes in: $PROMPT"
+    emit_if_allowed "$DEFAULT_CLAUDE_AGENT" "Architecture Reviewer" "Review architecture, integration, API contracts, breaking changes in: $PROMPT"
 
     local cve_provider
     if is_available perplexity; then
         cve_provider="perplexity"
     else
-        cve_provider=$(pick_provider "claude-sonnet" gemini copilot qwen)
+        cve_provider=$(pick_provider "$DEFAULT_CLAUDE_AGENT" gemini copilot qwen)
     fi
     [[ -n "$cve_provider" ]] && emit "$cve_provider" "CVE Reviewer" "Check for known CVEs, library advisories, and security bulletins related to: $PROMPT"
     return 0
@@ -294,12 +295,12 @@ build_debate_fleet() {
     done
 
     # Ensure at least 1 debater
-    [[ $debater_count -eq 0 ]] && debaters="claude-sonnet"
+    [[ $debater_count -eq 0 ]] && debaters="$DEFAULT_CLAUDE_AGENT"
 
     for d in $debaters; do
         emit "$d" "Debater" "Argue your position on: $PROMPT"
     done
-    emit_if_allowed "claude-sonnet" "Moderator" "Synthesize debate positions and identify consensus on: $PROMPT"
+    emit_if_allowed "$DEFAULT_CLAUDE_AGENT" "Moderator" "Synthesize debate positions and identify consensus on: $PROMPT"
     return 0
 }
 
@@ -321,7 +322,7 @@ build_architecture_fleet() {
         [[ $arch_count -ge 2 ]] && break
     done
 
-    [[ $arch_count -eq 0 ]] && octo_provider_allowed claude-sonnet && architects="claude-sonnet"
+    [[ $arch_count -eq 0 ]] && octo_provider_allowed "$DEFAULT_CLAUDE_AGENT" && architects="$DEFAULT_CLAUDE_AGENT"
 
     local i=0
     for a in $architects; do
@@ -332,7 +333,7 @@ build_architecture_fleet() {
         fi
         i=$((i + 1))
     done
-    emit_if_allowed "claude-sonnet" "Architecture Synthesis" "Synthesize architectural perspectives for: $PROMPT. Recommend the best approach with trade-off analysis."
+    emit_if_allowed "$DEFAULT_CLAUDE_AGENT" "Architecture Synthesis" "Synthesize architectural perspectives for: $PROMPT. Recommend the best approach with trade-off analysis."
     return 0
 }
 
