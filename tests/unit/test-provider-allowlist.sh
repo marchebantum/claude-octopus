@@ -79,7 +79,7 @@ fi
 
 mock_bin="$TEST_TMP_DIR/provider-allowlist-bin"
 mkdir -p "$mock_bin"
-for cmd in codex gemini; do
+for cmd in codex claude gemini; do
     cat > "$mock_bin/$cmd" <<'SH'
 #!/usr/bin/env bash
 exit 0
@@ -91,6 +91,14 @@ test_case "check-providers omits disallowed installed providers"
 output=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="gemini" "$CHECK_PROVIDERS")
 if assert_contains "$output" "gemini:available" "gemini should remain available" &&
    assert_not_contains "$output" "codex:" "codex should be hidden by allowlist"; then
+    test_pass
+fi
+
+test_case "check-providers reports allowlisted codex and claude"
+output=$(PATH="$mock_bin:/usr/bin:/bin" OCTO_ALLOWED_PROVIDERS="codex claude" "$CHECK_PROVIDERS")
+if assert_contains "$output" "codex:available" "codex should remain available" &&
+   assert_contains "$output" "claude:available" "claude should remain available" &&
+   assert_not_contains "$output" "gemini:" "gemini should be hidden by allowlist"; then
     test_pass
 fi
 
